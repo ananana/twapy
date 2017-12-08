@@ -25,8 +25,14 @@ from gensim.models import KeyedVectors
 # from gensim.models import Word2Vec
 from . import VectorSpaceModel
 from . import error, warn, info, debug
+from collections import Counter
+import wordnet_api
 
-
+def are_synonyms(word1, word2):
+    if word2.lower() in wordnet_api.get_synonyms_list(word1) or \
+            word1.lower() in wordnet_api.get_synonyms_list(word2):
+        return True
+    return False
 
 class Alignment(object):
 
@@ -36,7 +42,7 @@ class Alignment(object):
 
     """
 
-    def __init__(self, model1, model2, collection=None, samplesize=0.5):
+    def __init__(self, model1=None, model2=None, collection=None, samplesize=0.9):
         """There are three ways to initialize an `Alignment`:
         1) With two VectorSpaceModel instances
         2) With two filenames (which can be loaded to VectorSpaceModel instances)
@@ -60,6 +66,11 @@ class Alignment(object):
         self.regression = None
         debug("Initialized {:}".format(self))
         self.fit_transform()
+        # TODO: make this nicer
+        # self.model1_file = "./models/" + "_".join(self.model1.name.split("_")[:-1]) + ".tok"
+        # self.model2_file = "./models/" + "_".join(self.model2.name.split("_")[:-1]) + ".tok"
+        self.model1_file = "./models/" + ".".join(self.model1.name.split(".")[0:3]) + ".txt"
+        self.model2_file = "./models/" + ".".join(self.model2.name.split(".")[0:3]) + ".txt"
         return
 
     def __repr__(self):
@@ -137,6 +148,52 @@ class Alignment(object):
         s += "-" * linewidth + "\n"
         print(s)
 
+    def compute_words_frequencies(self):
+        with open(self.model1_file) as f1:
+            text1 = f1.read()
+        self.model1_words_frequencies = Counter(text1.split())
+        with open(self.model2_file) as f2:
+            text2 = f2.read()
+        self.model2_words_frequencies = Counter(text2.split())
+
+    def get_top_similarites(self, limit=-1, min_freq=100, vocab_file=None, ignore_same=True):
+        self.all_analogies = []
+        if vocab_file:
+            with open(vocab_file) as f:
+                vocab = f.read().split("\n")
+        else:
+            vocab = self.model1.m.vocab
+        print "length of vocab:", len(vocab)
+        self.compute_words_frequencies()
+        for i, word in enumerate(vocab):
+            debug(word)
+            try:
+                analogy = self.analogy(word)
+            except Exception, e:
+                debug(e.message)
+                continue
+            # exclude words where the most similar is itself - boring
+            if limit > 0 and i > limit:
+                debug("Above limit. Stopping")
+                break
+            if analogy.word1 == analogy.word2 and ignore_same:
+                continue
+            if self.model1_words_frequencies[analogy.word1] < min_freq or self.model2_words_frequencies[analogy.word2] < min_freq:
+                continue
+            self.all_analogies.append(analogy)
+        # sort by the 2 word frequencies
+        sorted_analogies = sorted(self.all_analogies, 
+            key=lambda a: (
+                a.word1 != a.word2,
+                a.are_synonyms,
+                self.model1_words_frequencies[a.word1] + self.model2_words_frequencies[a.word2]), 
+            # key=lambda a: a.similarity_with_best * (self.model1_words_frequencies[a.word1] + self.model2_words_frequencies[a.word2]), 
+            # key=lambda a: a.similarity_with_best,
+            reverse=True)
+        for a in sorted_analogies:
+            print a.word1.encode("utf-8"), a.word2.encode("utf-8"), a.similarity_with_best, a.similarity_with_self,\
+             self.model1_words_frequencies[a.word1], self.model2_words_frequencies[a.word2], a.are_synonyms
+
 
 class Analogy(object):
 
@@ -150,6 +207,10 @@ class Analogy(object):
             self.alignment = alignment
         self.word1 = word1
         self.word2 = None
+        self.similarity_with_best = None
+        self.similarity_with_self = None
+        self.most_similar_words = None
+        self.are_synonyms = None
         self.solve()
         return
 
@@ -157,9 +218,21 @@ class Analogy(object):
         debug("Solving analogy...")
         vec1 = self.alignment.model1[self.word1]
         vec3 = self.alignment.model3[self.word1]
-        self.neighbors1 = self.alignment.model1.most_similar(vec1)
-        self.neighbors2 = self.alignment.model2.most_similar(vec3)
+        # try:
+        #     vec2 = self.alignment.model2[self.word1]
+        #     self.similarity_with_self = self.alignment.model2.vec_similarity(vec2, vec3)
+        # except Exception, e:
+        #     debug(e.message)
+        self.neighbors1 = self.alignment.model1.most_similar(vec1, k=100)
+        self.neighbors2 = self.alignment.model2.most_similar(vec3, k=100)
         self.word2 = self.neighbors2[0][0]
+        self.similarity_with_best = self.neighbors2[0][1]
+        self.most_similar_words = self.neighbors2[:10]
+        for neigh in self.neighbors2:
+            if neigh[0] == self.word1:
+                self.similarity_with_self = neigh[1]
+                break
+        self.are_synonyms = are_synonyms(self.word1, self.word2)
         return
 
     def __str__(self):
@@ -170,7 +243,7 @@ class Analogy(object):
         return "<Analogy {:} {:}->{:}>".format(repr(self.word1), self.model1.name, self.model2.name)
 
 
-def fit_w2v_regression(model1, model2, samplesize=0.5):
+def fit_w2v_regression(model1, model2, samplesize=0.9):
     """Given two gensim Word2Vec models, fit a regression model using a subset of the vocabulary.
     The size of this subset is given by the samplesize parameter, which can specify either a
     percentage of the common vocab to use, or the number of words to use.

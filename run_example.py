@@ -6,10 +6,13 @@ be 'cilnton').
 """
 
 import twapy
+import sys
 
 model_dir = './models'
 collection = twapy.ModelCollection(model_dir)
-analogy = twapy.Analogy('reagan', '1987', '1997', collection=collection)
-print(analogy)
+while True:
+    word = sys.stdin.readline().strip()
+    analogy = twapy.Analogy(word, 'natives_embeddings100', 'translations_embeddings100', collection=collection)
+    print(analogy)
 # This prints the following:
 # 1987 : reagan :: 1997 : clinton

@@ -24,6 +24,8 @@ import re
 
 from twapy import info, debug, warn
 
+from numpy import dot, array
+from gensim import matutils
 
 try:
     from gensim.models import KeyedVectors
@@ -93,6 +95,9 @@ class VectorSpaceModel(object):
         else:
             results = self.m.similar_by_vector(query, topn=k)
         return results
+
+    def vec_similarity(self, vec1, vec2):
+        return dot(matutils.unitvec(array(vec1).mean(axis=0)), matutils.unitvec(array(vec2).mean(axis=0)))
 
     def __repr__(self):
         return "<VectorSpaceModel {:} with {:,} vectors>".format(repr(self.name), self.m.syn0.shape[0])
