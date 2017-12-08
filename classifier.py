@@ -29,7 +29,7 @@ class SimpleTokenizer(object):
         return filter(None, re.split(re.compile(r'[\W\d]', re.UNICODE), doc))
 
 
-def get_word_classifier(stopwords = None, vocabulary = None, stem = False, clean=True, max_features=None, kbest=None):
+def get_word_classifier(stopwords = None, vocabulary = None, stem = False, clean=False, max_features=None, kbest=None):
     ''':param stopwords: list of stopwords
     :param stem: stem words on tokenization
     :param clean: remove punctuation and numbers
@@ -102,5 +102,10 @@ if __name__ == '__main__':
     train(clf, X, y)
 
     print "Classifier with all words"
-    clf = get_word_classifier(vocabulary=vocabulary)
+    clf = get_word_classifier()
+    train(clf, X, y)
+
+    print "Classifier with kbest"
+    kbest = len(vocabulary)
+    clf = get_word_classifier(kbest=kbest)
     train(clf, X, y)
