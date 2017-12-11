@@ -3,6 +3,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.svm import SVC
 from sklearn.pipeline import Pipeline
 from sklearn.cross_validation import train_test_split
+from sklearn.feature_selection.univariate_selection import SelectKBest
 import csv
 import re
 import string
@@ -97,12 +98,16 @@ if __name__ == '__main__':
     vocabulary = load_vocabulary()
     X, y = build_training_set()
 
-    print "Classifier with vocabulary:"
-    clf = get_word_classifier(vocabulary=vocabulary)
-    train(clf, X, y)
+    # print "Classifier with vocabulary:"
+    # clf = get_word_classifier(vocabulary=vocabulary)
+    # train(clf, X, y)
 
-    print "Classifier with all words"
-    clf = get_word_classifier()
+    # print "Classifier with all words"
+    # clf = get_word_classifier()
+    # train(clf, X, y)
+    
+    print "Classifier with most frequent words"
+    clf = get_word_classifier(max_features=len(vocabulary))
     train(clf, X, y)
 
     print "Classifier with kbest"
