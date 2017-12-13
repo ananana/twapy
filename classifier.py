@@ -7,6 +7,7 @@ from sklearn.feature_selection.univariate_selection import SelectKBest
 import csv
 import re
 import string
+import numpy as np
 
 class LemmaTokenizer(object):
     def __init__(self, lang):
@@ -70,47 +71,104 @@ def train(classifier, X, y):
     return classifier
 
 def load_texts(filepath):
+    return load_text_chunks(filepath)
+
+def load_text_chunks(filepath, words_in_chunk=2000):
+    with open(filepath) as f:
+        sentences = [line.strip() for line in f]
+    print "reading files..."
+    words = []
+    for s in sentences:
+        words.extend(s.split())
+    print "building text..."
+    # build chunks of 2000 words texts
+    texts = [" ".join(words[i:i+words_in_chunk]) for i in range(0, len(words), words_in_chunk)]
+    return texts
+
+def load_sentences(filepath):
     with open(filepath) as f:
         texts = [line.strip() for line in f]
     return texts
 
-def load_vocabulary(dirpath=".", lang1="en", lang2="de"):
+def load_vocabulary(languages=["en", "de", "it", "fr"], dirpath="."):
   vocabulary = []
-  filepath = dirpath + "/" + "top_similarities_europarl_%s_%s.csv" % (lang1, lang2)
-  with open(filepath, 'rb') as f:
-      reader = csv.reader(f)
-      headers = reader.next()
-      for row in reader:
-        vocabulary.append(row[0])
-        vocabulary.append(row[1])
+  for lang in languages:
+    # Don't compare english with english
+    if lang == "en":
+      continue
+    filepath = dirpath + "/" + "top_similarities_europarl_%s_%s_common.csv" % ("en", lang)
+    with open(filepath, 'rb') as f:
+        reader = csv.reader(f)
+        headers = reader.next()
+        for row in reader:
+          vocabulary.append(row[0].lower())
+          vocabulary.append(row[1].lower())
   return set(vocabulary)
 
-def build_training_set(lang1="en", lang2="de", dir_path="models"):
-    filename1 = dir_path + "/" + "europarl.%s.en.txt" % lang1
-    filename2 = dir_path + "/" + "europarl.%s.en.txt" % lang2
-    texts1 = load_texts(filename1)
-    texts2 = load_texts(filename2)
-    labels1 = [lang1 for l in texts1]
-    labels2 = [lang2 for l in texts2]
-    return texts1 + texts2, labels1 + labels2
+def build_training_set(languages=["en", "de", "it", "fr"], dir_path="models"):
+    texts = []
+    labels = []
+    for lang in languages:
+      filename = dir_path + "/" + "europarl.%s.en.txt" % lang
+      current_texts = load_texts(filename)
+      texts.extend(current_texts)
+      labels.extend([lang for l in current_texts])
+    return texts, labels
 
 if __name__ == '__main__':
-    vocabulary = load_vocabulary()
-    X, y = build_training_set()
+    languages = ["en", "de", "it", "fr"]
+    vocabulary = load_vocabulary(languages)
+    X, y = build_training_set(languages)
 
-    # print "Classifier with vocabulary:"
-    # clf = get_word_classifier(vocabulary=vocabulary)
-    # train(clf, X, y)
+    print "All words:"
 
-    # print "Classifier with all words"
-    # clf = get_word_classifier()
-    # train(clf, X, y)
+    print "Classifier with vocabulary (words from embedding analogies):"
+    clf = get_word_classifier(vocabulary=vocabulary)
+    train(clf, X, y)
     
-    print "Classifier with most frequent words"
+    print "Classifier with all words:"
+    clf = get_word_classifier()
+    train(clf, X, y)
+    
+    print "Classifier with most frequent words", len(vocabulary)
     clf = get_word_classifier(max_features=len(vocabulary))
     train(clf, X, y)
-
-    print "Classifier with kbest"
+    
+    print "Classifier with kbest", len(vocabulary)
     kbest = len(vocabulary)
     clf = get_word_classifier(kbest=kbest)
     train(clf, X, y)
+    vectorizer = clf.named_steps['vect']
+    feature_names = vectorizer.get_feature_names()
+    if 'kbest' in clf.named_steps:
+        kbest = clf.named_steps['kbest']
+        feature_names = np.asarray(feature_names)[kbest.get_support()]
+        print "K best features:", feature_names
+
+    print "Only functional words"
+
+    print "Classifier with all functional words:"
+    stopwords_all = nltk.corpus.stopwords.words("english")
+    clf = get_word_classifier(vocabulary=stopwords_all)
+    train(clf, X, y)
+
+    print "Classifier with vocabulary (only functional):"
+    vocabulary_stopwords = filter(lambda w: w in stopwords_all, vocabulary)
+    clf = get_word_classifier(vocabulary=vocabulary_stopwords)
+    print vocabulary_stopwords
+    train(clf, X, y)
+
+    print "Classifier with most frequent words (only functional)", len(vocabulary_stopwords)
+    clf = get_word_classifier(max_features=len(vocabulary), vocabulary=stopwords_all)
+    train(clf, X, y)
+
+    print "Classifier with kbest function words", len(vocabulary_stopwords)
+    kbest = len(vocabulary_stopwords)
+    clf = get_word_classifier(kbest=kbest, vocabulary=stopwords_all)
+    train(clf, X, y)
+    vectorizer = clf.named_steps['vect']
+    feature_names = vectorizer.get_feature_names()
+    if 'kbest' in clf.named_steps:
+        kbest = clf.named_steps['kbest']
+        feature_names = np.asarray(feature_names)[kbest.get_support()]
+        print "K best features:", feature_names
