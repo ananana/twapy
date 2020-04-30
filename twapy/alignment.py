@@ -49,7 +49,9 @@ class Alignment(object):
         3) With two model names and a ModelCollection instance
         """
         if collection is not None:
+            print('model1', model1)
             self.model1 = collection[model1]
+            print('model1', self.model1)
             self.model2 = collection[model2]
         else:
             if type(model1) is str:
@@ -69,8 +71,10 @@ class Alignment(object):
         # TODO: make this nicer
         # self.model1_file = "./models/" + "_".join(self.model1.name.split("_")[:-1]) + ".tok"
         # self.model2_file = "./models/" + "_".join(self.model2.name.split("_")[:-1]) + ".tok"
-        self.model1_file = "./models/" + ".".join(self.model1.name.split(".")[0:3]) + ".txt"
-        self.model2_file = "./models/" + ".".join(self.model2.name.split(".")[0:3]) + ".txt"
+        self.model1_file = "./models/" + ".".join(self.model1.name.split(".")[0:2]) + ".txt"
+        self.model2_file = "./models/" + ".".join(self.model2.name.split(".")[0:2]) + ".txt"
+        # self.model1_file = "./models/" + "_".join(['text', self.model1.name.split("_")[1]]) + ".txt"
+        # self.model2_file = "./models/" + "_".join(['text', self.model2.name.split("_")[1]]) + ".txt"
         return
 
     def __repr__(self):
@@ -163,21 +167,21 @@ class Alignment(object):
                 vocab = f.read().split("\n")
         else:
             vocab = self.model1.m.vocab
-        print "length of vocab:", len(vocab)
+        print("length of vocab:", len(vocab))
         self.compute_words_frequencies()
         for i, word in enumerate(vocab):
             debug(word)
             try:
                 analogy = self.analogy(word)
-            except Exception, e:
+            except Exception as e:
                 debug(e.message)
                 continue
-            # exclude words where the most similar is itself - boring
             if limit > 0 and i > limit:
                 debug("Above limit. Stopping")
                 break
-            if analogy.word1 == analogy.word2 and ignore_same:
-                continue
+            # exclude words where the most similar is itself - boring
+            # if analogy.word1 == analogy.word2 and ignore_same:
+                # continue
             if self.model1_words_frequencies[analogy.word1] < min_freq or self.model2_words_frequencies[analogy.word2] < min_freq:
                 continue
             self.all_analogies.append(analogy)
@@ -191,8 +195,10 @@ class Alignment(object):
             # key=lambda a: a.similarity_with_best,
             reverse=True)
         for a in sorted_analogies:
-            print a.word1.encode("utf-8"), a.word2.encode("utf-8"), a.similarity_with_best, a.similarity_with_self,\
-             self.model1_words_frequencies[a.word1], self.model2_words_frequencies[a.word2], a.are_synonyms
+            print(",".join([a.word1, a.word2, 
+                str(a.similarity_with_best), str(a.similarity_with_self),\
+             str(self.model1_words_frequencies[a.word1]), str(self.model2_words_frequencies[a.word2]), 
+             str(a.are_synonyms)]))
 
 
 class Analogy(object):

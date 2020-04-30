@@ -70,6 +70,7 @@ class VectorSpaceModel(object):
             m = KeyedVectors.load_word2vec_format(filename, binary=True)
         else:
             m = KeyedVectors.load_word2vec_format(filename)
+        print(kwargs)
         model = cls()
         model.m = m
         if modelname is None:

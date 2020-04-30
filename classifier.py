@@ -39,12 +39,12 @@ def get_word_classifier(stopwords = None, vocabulary = None, stem = False, clean
     :param max_features: only use most frequent max_features words
     '''
     # clf = MultinomialNB()
-    clf = SVC(kernel='linear')#, class_weight="auto")
+    clf = SVC(kernel='linear', class_weight="balanced")
     # clf = SGDClassifier(loss='hinge', penalty='l2', alpha=1e-3, n_iter=5, random_state=42)
     if stem:
-        cv = CountVectorizer(stop_words=stopwords, vocabulary=vocabulary, tokenizer=LemmaTokenizer(), max_features=max_features)
+        cv = CountVectorizer(stop_words=stopwords, vocabulary=vocabulary, tokenizer=LemmaTokenizer())
     elif clean:
-        cv = CountVectorizer(stop_words=stopwords, vocabulary=vocabulary, tokenizer=SimpleTokenizer(), max_features=max_features)
+        cv = CountVectorizer(stop_words=stopwords, vocabulary=vocabulary, tokenizer=SimpleTokenizer())
     else:
         cv = CountVectorizer(stop_words=stopwords, vocabulary=vocabulary, max_features=max_features)
     # TODO: tune k
@@ -155,8 +155,8 @@ def feature_significance_correlation(dict1, dict2):
   print "Features correlation:", scipy.stats.pearsonr(values1, values2)
 
 if __name__ == '__main__':
-    # languages = ["en", "de", "it", "fr"]
-    languages = ["en", "fr"]
+    languages = ["en", "de", "it", "fr"]
+    # languages = ["en", "fr"]
     vocabulary_with_significance = load_vocabulary(languages)
     print "Significance of vocabulary words as obtained by embeddings method:", vocabulary_with_significance
     vocabulary = vocabulary_with_significance.keys()
